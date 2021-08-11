@@ -16,7 +16,7 @@ Note that there are multiple logic/statement tables. You can have as many of the
  Once the config file is chosen, text should appear stating that the lists were made. If this is the case, click the generate synopsis button. From there you will be prompted to select a folder. Select a folder containing files/tables you want to parse through (must be docx files). These files should look something like the following.
  
 
- 
+ ![Config File](images/rawdata.png?raw=true "Config")
  
  From there, you will be prompted to select a folder to save outputted docx files. After selecting that folder, you should get a message saying the script has completed its job. Output files will look like the following.
  
