@@ -156,7 +156,8 @@ def gen_synopses():
                                     messagebox.showerror("Table Error", "Table does not exist!")
 
                     if len(grouping) == (logic_sub_set + 1):
-                        output_statements.append(add_statements_arr)
+                        if len(add_statements_arr) > 0:
+                            output_statements.append(add_statements_arr)
 
                 root.folder2 = filedialog.askdirectory(initialdir="/Users/sroche/Documents",
                                                        title="Select Synopses Folder")
