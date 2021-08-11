@@ -3,4 +3,4 @@ Reads through word document, collecting data from specified tables. Config file 
 
 Config file is a word document. Please note that the column headers must be exactly the same.
 
-![Config File](https://github.com/[SRoche14]/[autoSynopsis]/blob/[main]/config.png?raw=true)
+![Config File](https://github.com/[SRoche14]/[autoSynopsis]/blob/[main]/images/config.png?raw=true)
