@@ -7,6 +7,7 @@ from docx import Document
 from datetime import datetime
 from dateutil import relativedelta
 import re
+import numpy as np
 
 root = Tk()
 root.iconbitmap('kermit_icon.ico')
@@ -19,51 +20,53 @@ x = (screen_width / 2) - (app_width / 2)
 y = (screen_height / 2) - (app_height / 2)
 root.geometry(f'{app_width}x{app_height}+{int(x)}+{int(y)}')
 
-column_list = ''
-row_list = ''
-logic_list = []
-statement_list = []
-table_names = []
-description = []
+
 endLabel = Label(root, text="Completed Making Synopses. Have fun with your new free time :)", font=("Arial", 16))
 my_label = Label(root, text="Lists created, now generate synopses!", font=("Arial", 20))
 
 
-def open_conf():
+column_names = []
+table_names = []
+row_words = []
+instance_var = []
+everything = []
+logic_list = []
+statement_list = []
+
+
+def open_conf(label):
+    global column_names
+    global table_names
+    global row_words
+    global instance_var
+    global everything
+    global logic_list
+    global statement_list
     root.filename = filedialog.askopenfilename(initialdir="/Users/sroche/Documents/AutoSynopsis",
                                                title="Select Configuration File",
                                                filetypes=(("docx files", "*.docx"), ("all files", "*.*")))
 
     # works for only 1 header tables
     document = Document(root.filename)
-
-    table_count = 1
-    global endLabel
-    global column_list
-    global logic_list
-    global statement_list
-    global row_list
-    global table_names
-    global my_label
-    global description
-    column_list = ''
-    row_list = ''
-    logic_list = []
-    statement_list = []
-    table_names = []
-    description = []
     my_label.pack_forget()
     endLabel.pack_forget()
+    table_count = 0
     for table in document.tables:
         data = [[cell.text for cell in row.cells] for row in table.rows]
         df = pd.DataFrame(data)
         df = df.rename(columns=df.iloc[0]).drop(df.index[0]).reset_index(drop=True)
+        table_count += 1
         try:
             if table_count == 1:
-                column_list = df['Column Number'].tolist()
+                find_col_name = [col for col in df.columns if 'Column Name' in col]
+                row_word = [col for col in df.columns if 'Row contain' in col]
+                instance_col = [col for col in df.columns if 'Which instance' in col]
+                everything_col = [col for col in df.columns if 'Get everything' in col]
                 table_names = df['Table Name'].tolist()
-                row_list = df['Row Number'].tolist()
-                description = df['Description'].tolist()
+                column_names = df[find_col_name].values.tolist()
+                row_words = df[row_word].values.tolist()
+                instance_var = df[instance_col].values.tolist()
+                everything = df[everything_col].values.tolist()
             elif table_count >= 2:
                 logic_list_add = df['Logic'].tolist()
                 logic_list.append(logic_list_add)
@@ -74,25 +77,239 @@ def open_conf():
             print("not here")
         table_count += 1
 
-    if isinstance(column_list, list) and isinstance(table_names, list) and isinstance(row_list, list):
-        if isinstance(logic_list, list) and isinstance(statement_list, list):
-            start.pack_forget()
+    label.pack()
+    # return column_names, table_names, row_words, instance_var, everything, logic_list, statement_list
 
-            my_label.pack()
-            return column_list, table_names, logic_list, statement_list
-    else:
-        messagebox.showerror("Error", "Error configuring file - lists were not created.")
+
+def develop_sentences(output1_arr, output2_arr):
+    log_set = -1
+    for logic_sets in logic_list:
+
+        small_set = -1
+        log_set += 1
+        for small_log_set in logic_sets:
+            small_set += 1
+
+            logic_arr = small_log_set.split(',')
+            log_holder = []
+            current_fulfilled = 0
+            for log_statement in logic_arr:
+                if log_statement == '':
+                    continue
+                elif log_statement.find("If") != -1 or log_statement.find("if") != -1:
+                    index = int(log_statement.find('{'))
+                    end = int(log_statement.find('}') + 1)
+                    section = log_statement[index:end]
+                    section = section.replace("{", "").replace("}", "")
+                    if "*" in section:
+                        section = int(section.replace("*", "")) - 1
+
+                        if section in output2_arr.keys():
+                            current_fulfilled += 1
+                        else:
+                            break
+                    else:
+                        try:
+                            section = int(section) - 1
+                            log_holder.append(output1_arr[section])
+                            current_fulfilled += 1
+                        except KeyError:
+                            break
+                elif ">" or "<" or "=" in log_statement:
+                    if "<" in log_statement:
+                        split_log = log_statement.split("<")
+                        arrow_symbol = "<"
+                    elif ">" in log_statement:
+                        split_log = log_statement.split(">")
+                        arrow_symbol = ">"
+                    elif "=" in log_statement:
+                        split_log = log_statement.split("=")
+                        arrow_symbol = "="
+                    else:
+                        break
+                    decision = log_statement.count('{')
+                    if decision == 2:
+                        index = int(log_statement.find('{'))
+                        end = int(log_statement.find('}') + 1)
+                        section = log_statement[index:end]
+                        section = section.replace("{", "").replace("}", "")
+                        index2 = int(log_statement.find('{', log_statement.index('{') + 1))
+                        end2 = int(log_statement.find('}', log_statement.index('}') + 1) + 1)
+                        section2 = log_statement[index2:end2]
+                        section2 = section2.replace("{", "").replace("}", "")
+
+                        if "*" in section:
+                            try:
+                                section = section.replace("*", "")
+                                output_use = output2_arr
+                            except KeyError:
+                                continue
+                        else:
+                            output_use = output1_arr
+                        if "*" in section2:
+                            try:
+                                section2 = section2.replace("*", "")
+                                output_use2 = output2_arr
+                            except KeyError:
+                                continue
+                        else:
+                            output_use2 = output1_arr
+                        try:
+                            key = int(section) - 1
+                            val = output_use[key].replace("$", "").replace(",", "")
+                            val = val.replace("/mo", "").replace("/yr", "").replace("/wk", "")
+
+                            key2 = int(section2) - 1
+                            val2 = output_use2[key2].replace("$", "").replace(",", "")
+                            val2 = val2.replace("/mo", "").replace("/yr", "").replace("/wk", "")
+                            try:
+                                val = int(val)
+                                val2 = int(val2)
+                            except:
+                                break
+                            if arrow_symbol == ">":
+
+                                if val > val2:
+                                    current_fulfilled += 1
+                                else:
+                                    break
+                            elif arrow_symbol == "<":
+                                if val < val2:
+                                    current_fulfilled += 1
+                                else:
+                                    break
+                            elif arrow_symbol == "=":
+                                if val == val2:
+                                    current_fulfilled += 1
+                                else:
+                                    break
+                        except:
+                            break
+                    elif decision == 1:
+                        index = int(log_statement.find('{'))
+                        end = int(log_statement.find('}') + 1)
+                        section = log_statement[index:end]
+                        full_section = log_statement[index:end]
+                        section = section.replace("{", "").replace("}", "")
+                        if "*" in section:
+                            try:
+                                section = section.replace("*", "")
+                                output_use = output2_arr
+                            except KeyError:
+                                continue
+                        else:
+                            output_use = output1_arr
+                        try:
+                            key = int(section) - 1
+                            val = output_use[key].replace("$", "").replace(",", "")
+                            val = val.replace("/mo", "").replace("/yr", "").replace("/wk", "")
+                            if val.upper() == "YES":
+                                val = "yes"
+                            elif val.upper() == "NO":
+                                val = 'no'
+                            try:
+                                if val != 'yes' and val != 'no':
+                                    val = int(val)
+                            except:
+                                break
+                            if arrow_symbol == "<":
+                                if full_section in split_log[0]:
+                                    if val < int(split_log[1].strip()):
+                                        current_fulfilled += 1
+                                    else:
+                                        break
+                                elif full_section in split_log[1]:
+                                    if val > int(split_log[0].strip()):
+                                        current_fulfilled += 1
+                                    else:
+                                        break
+                            elif arrow_symbol == ">":
+                                if full_section in split_log[0]:
+                                    if val > int(split_log[1].strip()):
+                                        current_fulfilled += 1
+                                    else:
+                                        break
+                                elif full_section in split_log[1]:
+                                    if val < int(split_log[0].strip()):
+                                        current_fulfilled += 1
+                                    else:
+                                        break
+                            elif arrow_symbol == "=":
+
+                                if full_section in split_log[0]:
+                                    if val == 'yes':
+                                        if split_log[1].strip().lower() == 'yes':
+                                            current_fulfilled += 1
+                                        else:
+                                            break
+                                    elif val == 'no':
+                                        if split_log[1].strip().lower() == 'no':
+                                            current_fulfilled += 1
+                                        else:
+                                            break
+                                    else:
+                                        if val == int(split_log[1].strip()):
+                                            current_fulfilled += 1
+                                        else:
+                                            break
+                                elif full_section in split_log[1]:
+                                    if val == 'yes':
+                                        if split_log[0].strip().lower() == 'yes':
+                                            current_fulfilled += 1
+                                        else:
+                                            break
+                                    elif val == 'no':
+                                        if split_log[0].strip().lower() == 'no':
+                                            current_fulfilled += 1
+                                        else:
+                                            break
+                                    else:
+                                        if val == int(split_log[0].strip()):
+                                            current_fulfilled += 1
+                                        else:
+                                            break
+                        except KeyError:
+                            continue
+                if current_fulfilled == len(logic_arr):
+                    count = 0
+                    statement = statement_list[log_set][small_set]
+                    while '{' in statement and count <= 20:
+                        count += 1
+                        index = int(statement.find('{'))
+                        end = int(statement.find('}') + 1)
+                        section = statement[index:end]
+                        key = section.replace('{', "").replace('}', "")
+                        if "*" in key:
+                            key = int(key.replace("*", "")) - 1
+                            value = output2_arr[key]
+                            statement = statement.replace(section, value)
+                        else:
+                            key = int(key) - 1
+                            value = output1_arr[key]
+                            statement = statement.replace(section, value)
+                        if '{' and '}' not in statement:
+                            print(statement)
+                    if '{' not in statement and count == 0:
+                        print(statement)
 
 
 def gen_synopses():
-    output_statements = []
-    table_names_docx = []
-    if isinstance(column_list, list) and isinstance(table_names, list) and isinstance(row_list, list):
-        if len(logic_list) > 0 and len(statement_list) > 0:
+
+    if isinstance(column_names, list) and isinstance(table_names, list) and isinstance(row_words, list):
+        if len(logic_list) >= 0 and len(statement_list) >= 0:
             root.folder = filedialog.askdirectory(initialdir="/Users/sroche/Documents/AutoSynopsis",
                                                   title="Select Synopses Folder")
             docx_list = os.listdir(root.folder)
             for doc in docx_list:
+                output1_list = {}
+                output2_list = {}
+                table_name_use = []
+                for i in table_names:
+                    table_name_use.append(i)
+                column_name_use = []
+                for i in column_names:
+                    column_name_use.append(i)
+                table_names_docx = []
                 if doc == '.DS_Store' or '~' in doc:
                     continue
                 file = root.folder + "/" + doc
@@ -100,288 +317,90 @@ def gen_synopses():
                 for para in document.paragraphs:
                     if para.style.name == 'Detail - Heading Synopsis':
                         table_names_docx.append(para.text.strip())
-                logic_set = -1
-                for grouping in logic_list:
-                    filter_object = filter(lambda t: t != "", grouping)
-                    grouping = list(filter_object)
-                    add_statements_arr = []
-                    logic_set += 1
-                    logic_sub_set = -1
-                    for logic in grouping:
-                        logic_sub_set += 1
-                        current_statement = statement_list[logic_set][logic_sub_set]
-                        logic = logic.split(',')
-                        correct_num = len(logic)
-                        num_correct = 0
-                        for item in logic:
-                            if item.strip().lower() == 'n/a':
-                                count = 0
-                                for i in current_statement:
-                                    if i == '{':
-                                        count = count + 1
-                                for iteration in range(count):
-                                    index = int(current_statement.find('{'))
-                                    end = int(current_statement.find('}') + 1)
-                                    section = current_statement[index:end]
-                                    column = current_statement[(index + 1):(end - 1)]
-                                    if "/" in column:
-                                        sep = column.split("/")
-                                        column = sep[0]
-                                    table_title = table_names[int(column) - 1]
-                                    index2 = table_names_docx.index(table_title)
-                                    table_num = index2
-                                    row_num = row_list[int(column) - 1]
-                                    row_num = int(row_num) - 1
-                                    column_name = column_list[int(column) - 1]
-                                    desc = description[int(column) - 1]
-                                    table = document.tables[table_num]
-                                    data = [[cell.text for cell in row.cells] for row in table.rows]
-                                    df = pd.DataFrame(data)
-                                    df = df.rename(columns=df.iloc[0]).drop(df.index[0]) \
-                                        .reset_index(drop=True)
-                                    column_name = column_name.strip()
-                                    column_name = int(column_name) - 1
-                                    data = df.iloc[row_num, column_name]
-                                    for rep in ["/mo", "/yr"]:
-                                        data = data.replace(rep, "")
-                                    if "How Old" in desc:
-                                        separate = data.split()
-                                        current_time = datetime.now()
-                                        curr_yr = current_time.year
-                                        curr_mon = current_time.month
-                                        curr_day = current_time.day
-                                        mon = separate[0]
-                                        day = int(separate[1])
-                                        yr = int(separate[2])
-                                        datetime_object = datetime.strptime(mon, "%b")
-                                        mon = datetime_object.month
-                                        today = datetime(curr_yr, curr_mon, curr_day)
-                                        birth = datetime(yr, mon, day)
-                                        # Get the interval between two dates
-                                        diff = relativedelta.relativedelta(today, birth)
-                                        data = diff.years
-                                    elif "Exact Age" in desc:
-                                        life_expectancy = data
-                                        birth_year = df.iloc[0, 1]
-                                        birth_year = birth_year.split()
-                                        year = birth_year[-1]
-                                        life_expectancy = life_expectancy.split()
-                                        dead_year = life_expectancy[-1]
-                                        data = abs(int(dead_year) - int(year))
 
-                                    elif "In Dollars" in desc:
-                                        data = re.findall(r'\$.*', data)
-                                        data = data[0]
-                                    elif "Check Versus Now" in desc:
-                                        find_year = data.split()
-                                        find_month = find_year[0]
-                                        datetime_object = datetime.strptime(find_month, "%b")
-                                        find_month = datetime_object.month
-                                        find_year = int(find_year[1])
-                                        current_time = datetime.now()
-                                        curr_yr = current_time.year
-                                        curr_mon = current_time.month
-                                        curr_day = current_time.day
-                                        today = datetime(curr_yr, curr_mon, curr_day)
-                                        retirement = datetime(find_year, find_month, 1)
-                                        is_person_retired = retirement < today
-                                        if is_person_retired:
-                                            current_statement = current_statement.replace(section,
-                                                                                          'You are currently retired.',
-                                                                                          1)
-                                            continue
-                                        else:
-                                            current_statement = current_statement.replace(section,
-                                                                                          'You are not currently retired.',
-                                                                                          1)
-                                            continue
-                                    if "/" in section:
-                                        sec = section.replace("{", "").replace("}", "")
-                                        new_thing = sec.split("/")
-                                        data = data.replace("$", "").replace(",", "")
-                                        data = int(data) / int(new_thing[1])
-                                        data = "$" + str(data)
+                count = -1
+                information_arr = []
+                index_arr = []
+                remove_arr = []
+                for table_title in table_names:
+                    count += 1
+                    if table_title == '':
+                        continue
+                    table_num = table_names_docx.index(table_title)
+                    table = document.tables[table_num]
+                    data = [[cell.text for cell in row.cells] for row in table.rows]
+                    df = pd.DataFrame(data)
+                    df = df.rename(columns=df.iloc[0]).drop(df.index[0]).reset_index(drop=True)
+                    try:
+                        row_word = row_words[count][0]
+                        addition = []
+                        mask = np.column_stack([df[col].str.contains(row_word, na=False) for col in df])
+                        find_result = np.where(mask == True)
+                        if find_result:
+                            try:
+                                result = [find_result[0][0], find_result[1][0]]
+                                addition.append(result)
+                                index_arr.append(count)
+                            except:
+                                remove_arr.append(table_title)
+                                continue
+                            try:
+                                result2 = [find_result[0][1], find_result[1][1]]
+                                addition.append(result2)
+                                information_arr.append(addition)
+                            except:
+                                information_arr.append(addition)
 
-                                    current_statement = current_statement.replace(section, str(data), 1)
-                                add_statements_arr.append(current_statement)
-                            else:
-                                pieces = item.strip().split(' ')
-                                column, operator, value = pieces[0], pieces[1], pieces[2]
-                                table_title = table_names[int(column) - 1]
-                                index = table_names_docx.index(table_title)
-                                table_num = index
-                                try:
-                                    table = document.tables[table_num]
-                                    data = [[cell.text for cell in row.cells] for row in table.rows]
-                                    df = pd.DataFrame(data)
-                                    df = df.rename(columns=df.iloc[0]).drop(df.index[0]).reset_index(drop=True)
-                                    row_num = row_list[int(column) - 1]
-                                    row_num = int(row_num) - 1
-                                    column_name = column_list[int(column) - 1]
-                                    try:
-                                        column_name = column_name.strip()
-                                        column_name = int(column_name) - 1
-                                        data = df.iloc[row_num, column_name]
-                                        data = data.replace("$", "")
-                                        if operator == ">":
-                                            data = int(data)
-                                            if data > int(value):
-                                                num_correct += 1
-                                            else:
-                                                continue
-                                        elif operator == "<":
-                                            data = int(data)
-                                            if data < int(value):
-                                                num_correct += 1
-                                        elif operator == "=":
-                                            if value.lower() == "yes":
-                                                compare = data.lower().strip()
-                                                if compare == "yes":
-                                                    num_correct += 1
-                                            elif value.lower() == "no":
-                                                compare = data.lower().strip()
-                                                if compare == "no":
-                                                    num_correct += 1
-                                            elif int(data) == int(value):
-                                                num_correct += 1
-                                        if num_correct == correct_num:
-                                            count = 0
-                                            for i in current_statement:
-                                                if i == '{':
-                                                    count = count + 1
-                                            for iteration in range(count):
-                                                index = int(current_statement.find('{'))
-                                                end = int(current_statement.find('}') + 1)
-                                                section = current_statement[index:end]
-                                                column = current_statement[(index + 1):(end - 1)]
-                                                table_title = table_names[int(column) - 1]
-                                                index2 = table_names_docx.index(table_title)
-                                                table_num = index2
-                                                row_num = row_list[int(column) - 1]
-                                                row_num = int(row_num) - 1
-                                                column_name = column_list[int(column) - 1]
-                                                desc = description[int(column) - 1]
-                                                table = document.tables[table_num]
-                                                data = [[cell.text for cell in row.cells] for row in table.rows]
-                                                df = pd.DataFrame(data)
-                                                df = df.rename(columns=df.iloc[0]).drop(df.index[0]) \
-                                                    .reset_index(drop=True)
-                                                column_name = column_name.strip()
-                                                column_name = int(column_name) - 1
-                                                data = df.iloc[row_num, column_name]
-                                                for rep in ["/mo", "/yr"]:
-                                                    data = data.replace(rep, "")
-                                                if "How Old" in desc:
-                                                    separate = data.split()
-                                                    current_time = datetime.now()
-                                                    curr_yr = current_time.year
-                                                    curr_mon = current_time.month
-                                                    curr_day = current_time.day
-                                                    mon = separate[0]
-                                                    day = int(separate[1])
-                                                    yr = int(separate[2])
-                                                    datetime_object = datetime.strptime(mon, "%b")
-                                                    mon = datetime_object.month
-                                                    today = datetime(curr_yr, curr_mon, curr_day)
-                                                    birth = datetime(yr, mon, day)
-                                                    # Get the interval between two dates
-                                                    diff = relativedelta.relativedelta(today, birth)
-                                                    data = diff.years
-                                                elif "Exact Age" in desc:
-                                                    life_expectancy = data
-                                                    birth_year = df.iloc[0, 1]
-                                                    birth_year = birth_year.split()
-                                                    year = birth_year[-1]
-                                                    life_expectancy = life_expectancy.split()
-                                                    dead_year = life_expectancy[-1]
-                                                    data = abs(int(dead_year) - int(year))
-
-                                                elif "In Dollars" in desc:
-                                                    data = re.findall(r'\$.*', data)
-                                                    data = data[0]
-                                                elif "Check Versus Now" in desc:
-                                                    find_year = data.split()
-                                                    find_month = find_year[0]
-                                                    datetime_object = datetime.strptime(find_month, "%b")
-                                                    find_month = datetime_object.month
-                                                    find_year = int(find_year[1])
-                                                    current_time = datetime.now()
-                                                    curr_yr = current_time.year
-                                                    curr_mon = current_time.month
-                                                    curr_day = current_time.day
-                                                    today = datetime(curr_yr, curr_mon, curr_day)
-                                                    retirement = datetime(find_year, find_month, 1)
-                                                    is_person_retired = retirement < today
-                                                    if is_person_retired:
-                                                        current_statement = current_statement.replace(section,
-                                                                                                      'You are currently retired.',
-                                                                                                      1)
-                                                        continue
-                                                    else:
-                                                        current_statement = current_statement.replace(section,
-                                                                                                      'You are not currently retired.',
-                                                                                                      1)
-                                                        continue
-                                                if "/" in section:
-                                                    sec = section.replace("{", "").replace("}", "")
-                                                    new_thing = sec.split("/")
-                                                    data = data.replace("$", "").replace(",", "")
-                                                    data = int(data) / int(new_thing[1])
-                                                    data = "$" + str(data)
-
-                                                current_statement = current_statement.replace(section, data, 1)
-                                            add_statements_arr.append(current_statement)
-
-                                    except KeyError:
-                                        print('here')
-                                        continue
-                                    except IndexError:
-                                        messagebox.showerror("Input Error",
-                                                             "One of your inputs is incorrect - check that you put in the right rows and columns!")
-                                    except ValueError:
-                                        messagebox.showerror("Input Error",
-                                                             "One of your inputs is incorrect - check that you put in the right rows and columns!")
-                                except ReferenceError:
-                                    messagebox.showerror("Table Error", "Table does not exist!")
-
-                    if len(grouping) == (logic_sub_set + 1):
-                        if len(add_statements_arr) > 0:
-                            output_statements.append(add_statements_arr)
-
-                root.folder2 = filedialog.askdirectory(initialdir="/Users/sroche/Documents",
-                                                       title="Select Synopses Folder")
-                document = Document()
-                document.add_heading('Finished Synopsis!', 0)
-                for number_groups in output_statements:
-                    document.add_heading("New Paragraph:", 2)
-                    for statements in number_groups:
-                        text = ''
-                        if "*bullet*" in statements:
-                            statements = statements.replace("*bullet*", "")
-                            split_up = statements.split("\n")
-                            for statement in split_up:
-                                document.add_paragraph(statement, style='List Bullet')
+                    except:
+                        continue
+                iteration = -1
+                for thing in remove_arr:
+                    index = table_name_use.index(thing)
+                    table_name_use.remove(thing)
+                    del column_name_use[index]
+                for table_title in table_name_use:
+                    iteration += 1
+                    if table_title == '':
+                        continue
+                    table_num = table_names_docx.index(table_title)
+                    table = document.tables[table_num]
+                    data = [[cell.text for cell in row.cells] for row in table.rows]
+                    df = pd.DataFrame(data)
+                    df = df.rename(columns=df.iloc[0]).drop(df.index[0]).reset_index(drop=True)
+                    group = information_arr[iteration]
+                    index_item = index_arr[iteration]
+                    for piece in group:
+                        row = piece[0]
+                        get_cols = column_name_use[iteration][0].split(',')
+                        column_label1 = get_cols[0].strip()
+                        if len(get_cols) > 1:
+                            column_label2 = get_cols[1].strip()
                         else:
-                            text += statements + " "
-                            document.add_paragraph(text)
-                filepath = root.folder2 + "/New_synopsis_" + doc
-                document.save(filepath)
+                            column_label2 = 'Not existent'
+                        if column_label1 in df:
+                            output1 = df.loc[df.index[row], column_label1]
+                            adding = output1.strip()
+                            output1_list[index_item] = adding
+                            if column_label2 in df:
+                                output2 = df.loc[df.index[row], column_label2]
+                                push = output2.strip()
+                                output2_list[index_item] = push
 
-            endLabel.pack()
-        else:
-            messagebox.showerror("Error", "Error configuring file - lists were not created.")
-    else:
-        messagebox.showerror("Error", "Error configuring file - lists were not created.")
+                develop_sentences(output1_list, output2_list)
 
 
 title = Label(root, text="Welcome to AutoSynopsis!", font=("Arial", 25))
 title.pack()
 
-conf_btn = Button(root, text="Get configuration file", command=open_conf, relief=SUNKEN, padx=20, pady=10,
+
+conf_btn = Button(root, text="Get configuration file",
+                  command=lambda: open_conf(my_label),
+                  relief=SUNKEN, padx=20, pady=10,
                   font=("Arial", 16))
 conf_btn.pack()
 
-gen_syn_btn = Button(root, text="Generate Synopsis", command=gen_synopses, relief=SUNKEN, padx=20, pady=10,
+gen_syn_btn = Button(root, text="Generate Synopsis", command=lambda: gen_synopses(),
+                     relief=SUNKEN, padx=20, pady=10,
                      font=("Arial", 16))
 gen_syn_btn.pack()
 
