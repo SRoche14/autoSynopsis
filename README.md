@@ -1,7 +1,7 @@
 # autoSynopsis
 Reads through word document, collecting data from specified tables. Config file allows user to autogenerate sentences based on data.
 
-Config file is a word document. Please note that the column headers must be exactly the same. The column number and description have no effect on code. To access a piece of data, you must put the table's name, a word/phrase in the column the data piece is in, and a word/phrase that appears in the same row.
+Config file is a word document. Please note that the column headers must be exactly the same. The column number and description have no effect on code. To access a piece of data, you must put the table's name, a word/phrase in the column the data piece is in, and a word/phrase that appears in the same row. Note that these 3 values are not case sensitive.
 
 Important: The logic must be set up as seen in the screen shot. This version only deals with a few logic cases. If the data point is a number, you can compare it to another number (>, <, =, >=, <=). If the data is a yes or no (boolean), it can compare that. You can also do operations on multiple data values & numbers together to make a comparison (+, -, *, /)
 
