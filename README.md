@@ -1,15 +1,19 @@
 # autoSynopsis
 Reads through word document, collecting data from specified tables. Config file allows user to autogenerate sentences based on data.
 
-Config file is a word document. Please note that the column headers must be exactly the same. The column number and description have no effect on code. To access a piece of data, you must put that data's column name, table number (not 0 indexed to be non-coder friendly), and row number (not 0 indexed). After running the script, click the configuration button to select your config docx.
+Config file is a word document. Please note that the column headers must be exactly the same. The column number and description have no effect on code. To access a piece of data, you must put the table's name, a word/phrase in the column the data piece is in, and a word/phrase that appears in the same row.
 
-Important: The logic must be set up as seen in the screen shot. This version only deals with a few logic cases. If the data point is a number, you can compare it to another number (>, <, =). If the data is a yes or no (boolean), it can compare that. Finally, if you want to display the data in the sentence, you must denote that with brackets and the column number. 
+Important: The logic must be set up as seen in the screen shot. This version only deals with a few logic cases. If the data point is a number, you can compare it to another number (>, <, =, >=, <=). If the data is a yes or no (boolean), it can compare that. You can also do operations on multiple data values & numbers together to make a comparison (+, -, *, /)
 
-For example, if I want to show the second column in my sentence (i.e. Life Expectancy as seen in the screen shot), I must put "{2}" as seen in the screen shot. 
+Data values are denoted by {3} (two brackets and a number in the middle). For tables where you want to collect 2 data points with the same column name and same consistent row word/phrase, denote the two distinct data points with {3} and {3^} respectively (3 being an example number). If the two data points are in different columns, denote them the same manner but put in two column names in the table. See below in the photos for clarification. 
 
 If all conditions in the logic section pass, the statement is written to the docx. 
 
-Note that there are multiple logic/statement tables. You can have as many of these tables as you want, but they must all have the same column names (i.e. Logic and Statment). This is to help organization of paragraphs. Paragraphs are generated based on these tables. So if you have 3 tables and statments pass in all three tables, your docx will have 3 paragraphs. This can be seen in the output file.
+Note that there are multiple logic/statement tables. You can have as many of these tables as you want, but they must all have the same column names (i.e. Logic and Statment). This is to help organization of your statements. Statements are outputted sequentially in the output file. 
+
+Note that the script runs through all the documents in a folder are processed sequentially. The script outputs different output word docx for each input file. The configuration file should be set up by the user to handle every possible condition the user wants to cover - the individual input docx files will probably meet only some of those conditions (and thus only some statements from the config file are outputted).
+
+Photos below.
 
 ![Config File](images/config.png?raw=true "Config")
  
