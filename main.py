@@ -1,13 +1,12 @@
 from tkinter import *
-from tkinter import messagebox
 from tkinter import filedialog
 import os
 import pandas as pd
 from docx import Document
-from datetime import datetime
-from dateutil import relativedelta
-import re
 import numpy as np
+import operator
+import re
+from datetime import datetime
 
 root = Tk()
 root.iconbitmap('kermit_icon.ico')
@@ -24,22 +23,20 @@ root.geometry(f'{app_width}x{app_height}+{int(x)}+{int(y)}')
 endLabel = Label(root, text="Completed Making Synopses. Have fun with your new free time :)", font=("Arial", 16))
 my_label = Label(root, text="Lists created, now generate synopses!", font=("Arial", 20))
 
+folder2 = "NULL"
 
 column_names = []
 table_names = []
 row_words = []
-instance_var = []
-everything = []
 logic_list = []
 statement_list = []
+num2 = 0
 
 
 def open_conf(label):
     global column_names
     global table_names
     global row_words
-    global instance_var
-    global everything
     global logic_list
     global statement_list
     root.filename = filedialog.askopenfilename(initialdir="/Users/sroche/Documents/AutoSynopsis",
@@ -60,13 +57,24 @@ def open_conf(label):
             if table_count == 1:
                 find_col_name = [col for col in df.columns if 'Column Name' in col]
                 row_word = [col for col in df.columns if 'Row contain' in col]
-                instance_col = [col for col in df.columns if 'Which instance' in col]
-                everything_col = [col for col in df.columns if 'Get everything' in col]
                 table_names = df['Table Name'].tolist()
+                table_names = [each_string.lower() for each_string in table_names]
                 column_names = df[find_col_name].values.tolist()
+                store = []
+                for item in column_names:
+                    temp = []
+                    for name in item:
+                        temp.append(name.lower())
+                    store.append(temp)
+                column_names = store
                 row_words = df[row_word].values.tolist()
-                instance_var = df[instance_col].values.tolist()
-                everything = df[everything_col].values.tolist()
+                store = []
+                for item in row_words:
+                    temp = []
+                    for name in item:
+                        temp.append(name.lower())
+                    store.append(temp)
+                row_words = store
             elif table_count >= 2:
                 logic_list_add = df['Logic'].tolist()
                 logic_list.append(logic_list_add)
@@ -78,10 +86,51 @@ def open_conf(label):
         table_count += 1
 
     label.pack()
-    # return column_names, table_names, row_words, instance_var, everything, logic_list, statement_list
+
+
+def list_maker(array):
+    if "=" in array:
+        symbol = "="
+    elif ">" in array:
+        symbol = ">"
+    elif "<" in array:
+        symbol = "<"
+    elif ">=" in array:
+        symbol = ">="
+    elif "<=" in array:
+        symbol = "<="
+    else:
+        symbol = 'NULL'
+    try:
+        index = array.index(symbol)
+        group1 = array[0:index]
+        group2 = array[index + 1:]
+        return symbol, group1, group2
+    except KeyError:
+        return "Null", "Null", "Null"
+
+
+def make_word_doc(output):
+    global num2
+    global folder2
+    num2 += 1
+
+    if folder2 == "NULL":
+        root.folder2 = filedialog.askdirectory(initialdir="/Users/sroche/Documents/AutoSynopsis",
+                                          title="Select Ouput Folder")
+        folder2 = root.folder2
+    document = Document()
+    document.add_heading('Outputed Synopses', 0)
+    document.add_heading('Statements:', level=1)
+    for statement in output:
+        p = document.add_paragraph(statement)
+    name_docx = folder2 + "/completedSynopses" + str(num2) + ".docx"
+    document.save(name_docx)
+    endLabel.pack()
 
 
 def develop_sentences(output1_arr, output2_arr):
+    output_sentences = []
     log_set = -1
     for logic_sets in logic_list:
 
@@ -101,8 +150,8 @@ def develop_sentences(output1_arr, output2_arr):
                     end = int(log_statement.find('}') + 1)
                     section = log_statement[index:end]
                     section = section.replace("{", "").replace("}", "")
-                    if "*" in section:
-                        section = int(section.replace("*", "")) - 1
+                    if "^" in section:
+                        section = int(section.replace("^", "")) - 1
 
                         if section in output2_arr.keys():
                             current_fulfilled += 1
@@ -115,161 +164,106 @@ def develop_sentences(output1_arr, output2_arr):
                             current_fulfilled += 1
                         except KeyError:
                             break
-                elif ">" or "<" or "=" in log_statement:
-                    if "<" in log_statement:
-                        split_log = log_statement.split("<")
-                        arrow_symbol = "<"
-                    elif ">" in log_statement:
-                        split_log = log_statement.split(">")
-                        arrow_symbol = ">"
-                    elif "=" in log_statement:
-                        split_log = log_statement.split("=")
-                        arrow_symbol = "="
-                    else:
-                        break
-                    decision = log_statement.count('{')
-                    if decision == 2:
-                        index = int(log_statement.find('{'))
-                        end = int(log_statement.find('}') + 1)
-                        section = log_statement[index:end]
-                        section = section.replace("{", "").replace("}", "")
-                        index2 = int(log_statement.find('{', log_statement.index('{') + 1))
-                        end2 = int(log_statement.find('}', log_statement.index('}') + 1) + 1)
-                        section2 = log_statement[index2:end2]
-                        section2 = section2.replace("{", "").replace("}", "")
-
-                        if "*" in section:
-                            try:
-                                section = section.replace("*", "")
+                elif ">" or "<" or "=" or "<=" or ">=" in log_statement:
+                    changed = 0
+                    num = log_statement.count('{')
+                    log_statement = log_statement.strip()
+                    separate = log_statement.split(" ")
+                    index = -1
+                    for piece in separate:
+                        index += 1
+                        life_expectancy = False
+                        if '{' in piece:
+                            piece = piece.replace('{', "").replace('}', "")
+                            if "^" in piece:
                                 output_use = output2_arr
-                            except KeyError:
-                                continue
-                        else:
-                            output_use = output1_arr
-                        if "*" in section2:
+                                piece = piece.replace("^", "")
+                            else:
+                                output_use = output1_arr
+                            if "#" in piece:
+                                life_expectancy = True
+                                piece = piece.replace("#", "")
                             try:
-                                section2 = section2.replace("*", "")
-                                output_use2 = output2_arr
+                                piece = int(piece) - 1
+                                val = output_use[piece].replace("$", '').replace(',', '')
+                                val = val.replace('/mo', '').replace('/yr', '').replace('/wk', '')
+                                if life_expectancy:
+                                    year = val.split(' ')
+                                    year = int(year[-1])
+                                    current_year = datetime.now().year
+                                    val = year - current_year
+                                    separate[index] = val
+                                else:
+                                    separate[index] = val
+                                changed += 1
                             except KeyError:
-                                continue
-                        else:
-                            output_use2 = output1_arr
-                        try:
-                            key = int(section) - 1
-                            val = output_use[key].replace("$", "").replace(",", "")
-                            val = val.replace("/mo", "").replace("/yr", "").replace("/wk", "")
-
-                            key2 = int(section2) - 1
-                            val2 = output_use2[key2].replace("$", "").replace(",", "")
-                            val2 = val2.replace("/mo", "").replace("/yr", "").replace("/wk", "")
-                            try:
-                                val = int(val)
-                                val2 = int(val2)
-                            except:
                                 break
-                            if arrow_symbol == ">":
+                    if changed == num:
+                        operation_arr = ["+", "-", "*", "/"]
+                        ops = {"+": operator.add, "-": operator.sub, "*": operator.mul, "/": operator.truediv}
+                        result1 = 0
+                        result2 = 0
+                        yes_no1 = "-10000"
+                        yes_no2 = "not gonna work"
+                        symbol, group1, group2 = list_maker(separate)
+                        for item in group1:
+                            loop_num = 0
+                            if len(group1) != 1:
+                                if loop_num == 0:
+                                    loop_num += 1
+                                    if item in operation_arr:
+                                        location = group1.index(item)
+                                        first = int(separate[location - 1])
+                                        second = int(separate[location + 1])
+                                        result1 += int(ops[item](first, second))
+                                else:
+                                    loop_num += 1
+                                    if item in operation_arr:
+                                        location = group1.index(item)
+                                        second = int(separate[location + 1])
+                                        result1 += int(ops[item](result1, second))
 
-                                if val > val2:
-                                    current_fulfilled += 1
+                            elif len(group1) == 1:
+                                comp = str(group1[0])
+                                if comp.lower() == 'yes' or comp.lower() == 'no':
+                                    yes_no1 = group1[0].lower()
                                 else:
-                                    break
-                            elif arrow_symbol == "<":
-                                if val < val2:
-                                    current_fulfilled += 1
+                                    result1 = int(group1[0])
+                        for item2 in group2:
+                            loop_num2 = 0
+                            if len(group2) != 1:
+                                if loop_num2 == 0:
+                                    loop_num2 += 1
+                                    if item2 in operation_arr:
+                                        location = group2.index(item2)
+                                        first = int(separate[location - 1])
+                                        second = int(separate[location + 1])
+                                        result2 += int(ops[item2](first, second))
                                 else:
-                                    break
-                            elif arrow_symbol == "=":
-                                if val == val2:
-                                    current_fulfilled += 1
+                                    loop_num2 += 1
+                                    if item2 in operation_arr:
+                                        location = group2.index(item2)
+                                        second = int(separate[location + 1])
+                                        result2 += int(ops[item2](result2, second))
+                            elif len(group2) == 1:
+                                comp = str(group2[0])
+                                if comp.lower() == 'yes' or comp.lower() == 'no':
+                                    yes_no2 = group2[0].lower()
                                 else:
-                                    break
-                        except:
-                            break
-                    elif decision == 1:
-                        index = int(log_statement.find('{'))
-                        end = int(log_statement.find('}') + 1)
-                        section = log_statement[index:end]
-                        full_section = log_statement[index:end]
-                        section = section.replace("{", "").replace("}", "")
-                        if "*" in section:
-                            try:
-                                section = section.replace("*", "")
-                                output_use = output2_arr
-                            except KeyError:
-                                continue
+                                    result2 = int(group2[0])
+                        if yes_no2 == yes_no1:
+                            current_fulfilled += 1
                         else:
-                            output_use = output1_arr
-                        try:
-                            key = int(section) - 1
-                            val = output_use[key].replace("$", "").replace(",", "")
-                            val = val.replace("/mo", "").replace("/yr", "").replace("/wk", "")
-                            if val.upper() == "YES":
-                                val = "yes"
-                            elif val.upper() == "NO":
-                                val = 'no'
-                            try:
-                                if val != 'yes' and val != 'no':
-                                    val = int(val)
-                            except:
-                                break
-                            if arrow_symbol == "<":
-                                if full_section in split_log[0]:
-                                    if val < int(split_log[1].strip()):
-                                        current_fulfilled += 1
-                                    else:
-                                        break
-                                elif full_section in split_log[1]:
-                                    if val > int(split_log[0].strip()):
-                                        current_fulfilled += 1
-                                    else:
-                                        break
-                            elif arrow_symbol == ">":
-                                if full_section in split_log[0]:
-                                    if val > int(split_log[1].strip()):
-                                        current_fulfilled += 1
-                                    else:
-                                        break
-                                elif full_section in split_log[1]:
-                                    if val < int(split_log[0].strip()):
-                                        current_fulfilled += 1
-                                    else:
-                                        break
-                            elif arrow_symbol == "=":
-
-                                if full_section in split_log[0]:
-                                    if val == 'yes':
-                                        if split_log[1].strip().lower() == 'yes':
-                                            current_fulfilled += 1
-                                        else:
-                                            break
-                                    elif val == 'no':
-                                        if split_log[1].strip().lower() == 'no':
-                                            current_fulfilled += 1
-                                        else:
-                                            break
-                                    else:
-                                        if val == int(split_log[1].strip()):
-                                            current_fulfilled += 1
-                                        else:
-                                            break
-                                elif full_section in split_log[1]:
-                                    if val == 'yes':
-                                        if split_log[0].strip().lower() == 'yes':
-                                            current_fulfilled += 1
-                                        else:
-                                            break
-                                    elif val == 'no':
-                                        if split_log[0].strip().lower() == 'no':
-                                            current_fulfilled += 1
-                                        else:
-                                            break
-                                    else:
-                                        if val == int(split_log[0].strip()):
-                                            current_fulfilled += 1
-                                        else:
-                                            break
-                        except KeyError:
-                            continue
+                            if symbol == "=" and result1 == result2:
+                                current_fulfilled += 1
+                            elif symbol == ">" and result1 > result2:
+                                current_fulfilled += 1
+                            elif symbol == "<" and result1 < result2:
+                                current_fulfilled += 1
+                            elif symbol == ">=" and result1 >= result2:
+                                current_fulfilled += 1
+                            elif symbol == "<=" and result1 <= result2:
+                                current_fulfilled += 1
                 if current_fulfilled == len(logic_arr):
                     count = 0
                     statement = statement_list[log_set][small_set]
@@ -279,18 +273,72 @@ def develop_sentences(output1_arr, output2_arr):
                         end = int(statement.find('}') + 1)
                         section = statement[index:end]
                         key = section.replace('{', "").replace('}', "")
-                        if "*" in key:
-                            key = int(key.replace("*", "")) - 1
-                            value = output2_arr[key]
-                            statement = statement.replace(section, value)
+                        operation_arr = ["+", "-", "*", "/"]
+                        ops = {"+": operator.add, "-": operator.sub, "*": operator.mul, "/": operator.truediv}
+                        if "$" in key:
+                            dollar_format = True
+                            key = key.replace("$", "")
                         else:
-                            key = int(key) - 1
-                            value = output1_arr[key]
-                            statement = statement.replace(section, value)
+                            dollar_format = False
+                        if "#" in key:
+                            life_expectancy = True
+                            key = key.replace("#", "")
+                        else:
+                            life_expectancy = False
+                        pieces = re.split(r"([*+\-/])", key)
+                        count2 = -1
+                        result = 0
+                        loop_counter = 0
+                        for data in pieces:
+                            count2 += 1
+                            if data in operation_arr and len(pieces) != 1:
+                                first = pieces[count2 - 1]
+                                second = pieces[count2 + 1]
+                                if '^' in first:
+                                    first = output2_arr[int(first.replace('^', "")) - 1]
+                                else:
+                                    first = output1_arr[int(first) - 1]
+                                first = first.replace('$', "").replace(',', '')
+                                if '^' in second:
+                                    second = output2_arr[int(second.replace('^', "")) - 1]
+                                else:
+                                    second = output1_arr[int(second) - 1]
+                                second = second.replace('$', "").replace(',', '')
+                                if loop_counter == 0:
+                                    loop_counter += 1
+                                    if data == '/':
+                                        result += int(first) / int(second)
+                                    else:
+                                        result += int(ops[data](int(first), int(second)))
+                                else:
+                                    loop_counter += 1
+                                    if data == '/':
+                                        result += int(result) / int(second)
+                                    else:
+                                        result += int(ops[data](int(result), int(second)))
+                            elif len(pieces) == 1:
+                                if '^' in data:
+                                    result = output2_arr[int(data.replace('^', "")) - 1]
+                                else:
+                                    result = output1_arr[int(data) - 1]
+                        if dollar_format:
+                            dollar = "${:,}".format(result)
+                            if '-' in dollar:
+                                dollar = dollar.replace('-', '')
+                                dollar = "-" + dollar
+                            statement = statement.replace(section, str(dollar))
+                        elif life_expectancy:
+                            current_year = datetime.now().year
+                            result = int(result) - int(current_year)
+                            statement = statement.replace(section, str(result))
+                        else:
+                            statement = statement.replace(section, str(result).title())
                         if '{' and '}' not in statement:
-                            print(statement)
+                            output_sentences.append(statement)
                     if '{' not in statement and count == 0:
-                        print(statement)
+                        output_sentences.append(statement)
+
+    make_word_doc(output_sentences)
 
 
 def gen_synopses():
@@ -316,7 +364,7 @@ def gen_synopses():
                 document = Document(file)
                 for para in document.paragraphs:
                     if para.style.name == 'Detail - Heading Synopsis':
-                        table_names_docx.append(para.text.strip())
+                        table_names_docx.append(para.text.strip().lower())
 
                 count = -1
                 information_arr = []
@@ -326,9 +374,17 @@ def gen_synopses():
                     count += 1
                     if table_title == '':
                         continue
+
                     table_num = table_names_docx.index(table_title)
                     table = document.tables[table_num]
                     data = [[cell.text for cell in row.cells] for row in table.rows]
+                    store = []
+                    for item in data:
+                        temp = []
+                        for name in item:
+                            temp.append(name.lower())
+                        store.append(temp)
+                    data = store
                     df = pd.DataFrame(data)
                     df = df.rename(columns=df.iloc[0]).drop(df.index[0]).reset_index(drop=True)
                     try:
@@ -365,6 +421,13 @@ def gen_synopses():
                     table_num = table_names_docx.index(table_title)
                     table = document.tables[table_num]
                     data = [[cell.text for cell in row.cells] for row in table.rows]
+                    store = []
+                    for item in data:
+                        temp = []
+                        for name in item:
+                            temp.append(name.lower())
+                        store.append(temp)
+                    data = store
                     df = pd.DataFrame(data)
                     df = df.rename(columns=df.iloc[0]).drop(df.index[0]).reset_index(drop=True)
                     group = information_arr[iteration]
@@ -377,14 +440,26 @@ def gen_synopses():
                             column_label2 = get_cols[1].strip()
                         else:
                             column_label2 = 'Not existent'
-                        if column_label1 in df:
-                            output1 = df.loc[df.index[row], column_label1]
-                            adding = output1.strip()
-                            output1_list[index_item] = adding
-                            if column_label2 in df:
-                                output2 = df.loc[df.index[row], column_label2]
-                                push = output2.strip()
-                                output2_list[index_item] = push
+                        # if column_label1 in df:
+                        col_list = list(df.columns.values)
+                        if any(column_label1 in string for string in col_list):
+                            strings = [string for string in col_list if column_label1 in string]
+                            column_label1 = strings[0]
+                            try:
+                                output1 = df.loc[df.index[row], column_label1]
+                                adding = output1.strip()
+                                output1_list[index_item] = adding
+                            except:
+                                continue
+                            if any(column_label2 in string for string in col_list):
+                                strings = [string for string in col_list if column_label2 in string]
+                                column_label2 = strings[0]
+                                try:
+                                    output2 = df.loc[df.index[row], column_label2]
+                                    push = output2.strip()
+                                    output2_list[index_item] = push
+                                except:
+                                    continue
 
                 develop_sentences(output1_list, output2_list)
 
