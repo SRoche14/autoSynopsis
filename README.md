@@ -15,15 +15,17 @@ Note that the script runs through all the documents in a folder are processed se
 
 Photos below.
 
-![Config File](images/config.png?raw=true "Config")
+![Config File](images/config2.png?raw=true "Config")
+![Config File](images/config22.png?raw=true "Config")
  
  Once the config file is chosen, text should appear stating that the lists were made. If this is the case, click the generate synopsis button. From there you will be prompted to select a folder. Select a folder containing files/tables you want to parse through (must be docx files). These files should look something like the following.
  
 
- ![Config File](images/rawdata.png?raw=true "Config")
+ ![Config File](images/inputdocx2.png?raw=true "Config")
  
  From there, you will be prompted to select a folder to save outputted docx files. After selecting that folder, you should get a message saying the script has completed its job. Output files will look like the following.
  
  ![Config File](images/output.png?raw=true "Config")
+  ![Config File](images/output3.png?raw=true "Config")
  
  Feel free to alter how the data comes out and such (i.e. make the docx somewhat more presentable). I left it very simple as my friend's use for it is very basic and the docx file is not being presented anywhere.
