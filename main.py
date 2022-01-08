@@ -117,7 +117,7 @@ def make_word_doc(output):
 
     if folder2 == "NULL":
         root.folder2 = filedialog.askdirectory(initialdir="/Users/sroche/Documents/AutoSynopsis",
-                                          title="Select Ouput Folder")
+                                               title="Select Ouput Folder")
         folder2 = root.folder2
     document = Document()
     document.add_heading('Outputed Synopses', 0)
@@ -130,6 +130,7 @@ def make_word_doc(output):
 
 
 def develop_sentences(output1_arr, output2_arr):
+
     output_sentences = []
     log_set = -1
     for logic_sets in logic_list:
@@ -307,13 +308,15 @@ def develop_sentences(output1_arr, output2_arr):
                                 if loop_counter == 0:
                                     loop_counter += 1
                                     if data == '/':
-                                        result += int(first) / int(second)
+                                        result += round(int(first) / int(second), 2)
+                                        print(result)
                                     else:
                                         result += int(ops[data](int(first), int(second)))
                                 else:
                                     loop_counter += 1
                                     if data == '/':
-                                        result += int(result) / int(second)
+                                        result += round(int(result) / int(second), 2)
+                                        print(result)
                                     else:
                                         result += int(ops[data](int(result), int(second)))
                             elif len(pieces) == 1:
@@ -369,7 +372,6 @@ def gen_synopses():
                 count = -1
                 information_arr = []
                 index_arr = []
-                remove_arr = []
                 for table_title in table_names:
                     count += 1
                     if table_title == '':
@@ -387,6 +389,7 @@ def gen_synopses():
                     data = store
                     df = pd.DataFrame(data)
                     df = df.rename(columns=df.iloc[0]).drop(df.index[0]).reset_index(drop=True)
+
                     try:
                         row_word = row_words[count][0]
                         addition = []
@@ -397,23 +400,20 @@ def gen_synopses():
                                 result = [find_result[0][0], find_result[1][0]]
                                 addition.append(result)
                                 index_arr.append(count)
-                            except:
-                                remove_arr.append(table_title)
+
+                            except IndexError:
                                 continue
                             try:
                                 result2 = [find_result[0][1], find_result[1][1]]
                                 addition.append(result2)
                                 information_arr.append(addition)
-                            except:
+                            except IndexError:
                                 information_arr.append(addition)
 
-                    except:
+                    except ValueError:
                         continue
                 iteration = -1
-                for thing in remove_arr:
-                    index = table_name_use.index(thing)
-                    table_name_use.remove(thing)
-                    del column_name_use[index]
+               
                 for table_title in table_name_use:
                     iteration += 1
                     if table_title == '':
@@ -427,10 +427,15 @@ def gen_synopses():
                         for name in item:
                             temp.append(name.lower())
                         store.append(temp)
+
                     data = store
                     df = pd.DataFrame(data)
                     df = df.rename(columns=df.iloc[0]).drop(df.index[0]).reset_index(drop=True)
-                    group = information_arr[iteration]
+                    try:
+                        group = information_arr[iteration]
+                    except:
+                        break
+
                     index_item = index_arr[iteration]
                     for piece in group:
                         row = piece[0]
@@ -449,7 +454,7 @@ def gen_synopses():
                                 output1 = df.loc[df.index[row], column_label1]
                                 adding = output1.strip()
                                 output1_list[index_item] = adding
-                            except:
+                            except KeyError:
                                 continue
                             if any(column_label2 in string for string in col_list):
                                 strings = [string for string in col_list if column_label2 in string]
@@ -458,7 +463,7 @@ def gen_synopses():
                                     output2 = df.loc[df.index[row], column_label2]
                                     push = output2.strip()
                                     output2_list[index_item] = push
-                                except:
+                                except KeyError:
                                     continue
 
                 develop_sentences(output1_list, output2_list)
@@ -471,12 +476,12 @@ title.pack()
 conf_btn = Button(root, text="Get configuration file",
                   command=lambda: open_conf(my_label),
                   relief=SUNKEN, padx=20, pady=10,
-                  font=("Arial", 16))
+                  font=("Arial", 16), bg="white")
 conf_btn.pack()
 
 gen_syn_btn = Button(root, text="Generate Synopsis", command=lambda: gen_synopses(),
                      relief=SUNKEN, padx=20, pady=10,
-                     font=("Arial", 16))
+                     font=("Arial", 16), bg="white")
 gen_syn_btn.pack()
 
 start = Label(root, text="Please configure this before generating Synopses.", font=("Arial", 20))
