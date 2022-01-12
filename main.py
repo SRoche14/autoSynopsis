@@ -4,9 +4,9 @@ import os
 import pandas as pd
 from docx import Document
 import numpy as np
-import operator
 import re
 from datetime import datetime
+import math
 
 root = Tk()
 root.iconbitmap('kermit_icon.ico')
@@ -110,6 +110,10 @@ def list_maker(array):
         return "Null", "Null", "Null"
 
 
+def string_func(ele):
+    return str(ele)
+
+
 def make_word_doc(output):
     global num2
     global folder2
@@ -117,7 +121,7 @@ def make_word_doc(output):
 
     if folder2 == "NULL":
         root.folder2 = filedialog.askdirectory(initialdir="/Users/sroche/Documents/AutoSynopsis",
-                                               title="Select Ouput Folder")
+                                          title="Select Ouput Folder")
         folder2 = root.folder2
     document = Document()
     document.add_heading('Outputed Synopses', 0)
@@ -130,7 +134,6 @@ def make_word_doc(output):
 
 
 def develop_sentences(output1_arr, output2_arr):
-
     output_sentences = []
     log_set = -1
     for logic_sets in logic_list:
@@ -151,6 +154,7 @@ def develop_sentences(output1_arr, output2_arr):
                     end = int(log_statement.find('}') + 1)
                     section = log_statement[index:end]
                     section = section.replace("{", "").replace("}", "")
+
                     if "^" in section:
                         section = int(section.replace("^", "")) - 1
 
@@ -161,31 +165,32 @@ def develop_sentences(output1_arr, output2_arr):
                     else:
                         try:
                             section = int(section) - 1
-                            log_holder.append(output1_arr[section])
-                            current_fulfilled += 1
+                            if section in output1_arr.keys():
+                                current_fulfilled += 1
                         except KeyError:
                             break
                 elif ">" or "<" or "=" or "<=" or ">=" in log_statement:
-                    changed = 0
-                    num = log_statement.count('{')
-                    log_statement = log_statement.strip()
-                    separate = log_statement.split(" ")
-                    index = -1
-                    for piece in separate:
-                        index += 1
-                        life_expectancy = False
-                        if '{' in piece:
-                            piece = piece.replace('{', "").replace('}', "")
-                            if "^" in piece:
+                    life_expectancy = False
+
+                    s = re.split('{|}', log_statement)
+                    count = -1
+
+                    for item in s:
+                        count += 1
+                        if count % 2 == 0:
+                            continue
+                        elif count % 2 == 1:
+                            if "^" in item:
                                 output_use = output2_arr
-                                piece = piece.replace("^", "")
+                                item = item.replace("^", "")
                             else:
                                 output_use = output1_arr
-                            if "#" in piece:
+                            if "#" in item:
                                 life_expectancy = True
-                                piece = piece.replace("#", "")
+                                item = item.replace("#", "")
                             try:
-                                piece = int(piece) - 1
+                                piece = int(item) - 1
+
                                 val = output_use[piece].replace("$", '').replace(',', '')
                                 val = val.replace('/mo', '').replace('/yr', '').replace('/wk', '')
                                 if life_expectancy:
@@ -193,153 +198,189 @@ def develop_sentences(output1_arr, output2_arr):
                                     year = int(year[-1])
                                     current_year = datetime.now().year
                                     val = year - current_year
-                                    separate[index] = val
-                                else:
-                                    separate[index] = val
-                                changed += 1
+                                s[count] = val
                             except KeyError:
+                                print('key error')
                                 break
-                    if changed == num:
-                        operation_arr = ["+", "-", "*", "/"]
-                        ops = {"+": operator.add, "-": operator.sub, "*": operator.mul, "/": operator.truediv}
-                        result1 = 0
-                        result2 = 0
-                        yes_no1 = "-10000"
-                        yes_no2 = "not gonna work"
-                        symbol, group1, group2 = list_maker(separate)
-                        for item in group1:
-                            loop_num = 0
-                            if len(group1) != 1:
-                                if loop_num == 0:
-                                    loop_num += 1
-                                    if item in operation_arr:
-                                        location = group1.index(item)
-                                        first = int(separate[location - 1])
-                                        second = int(separate[location + 1])
-                                        result1 += int(ops[item](first, second))
-                                else:
-                                    loop_num += 1
-                                    if item in operation_arr:
-                                        location = group1.index(item)
-                                        second = int(separate[location + 1])
-                                        result1 += int(ops[item](result1, second))
+                    s = list(map(string_func, s))
 
-                            elif len(group1) == 1:
-                                comp = str(group1[0])
-                                if comp.lower() == 'yes' or comp.lower() == 'no':
-                                    yes_no1 = group1[0].lower()
-                                else:
-                                    result1 = int(group1[0])
-                        for item2 in group2:
-                            loop_num2 = 0
-                            if len(group2) != 1:
-                                if loop_num2 == 0:
-                                    loop_num2 += 1
-                                    if item2 in operation_arr:
-                                        location = group2.index(item2)
-                                        first = int(separate[location - 1])
-                                        second = int(separate[location + 1])
-                                        result2 += int(ops[item2](first, second))
-                                else:
-                                    loop_num2 += 1
-                                    if item2 in operation_arr:
-                                        location = group2.index(item2)
-                                        second = int(separate[location + 1])
-                                        result2 += int(ops[item2](result2, second))
-                            elif len(group2) == 1:
-                                comp = str(group2[0])
-                                if comp.lower() == 'yes' or comp.lower() == 'no':
-                                    yes_no2 = group2[0].lower()
-                                else:
-                                    result2 = int(group2[0])
-                        if yes_no2 == yes_no1:
+                    try:
+                        output = ''.join(s)
+                        output = output.replace("]", "").replace("[", "")
+
+                        result = round(eval(output), 2)
+
+                        if result:
+                            current_fulfilled += 1
+                    except SyntaxError:
+                        s = ''.join(s).strip()
+                        s = s.split(" ")
+
+                        if s[0] == s[2]:
                             current_fulfilled += 1
                         else:
-                            if symbol == "=" and result1 == result2:
-                                current_fulfilled += 1
-                            elif symbol == ">" and result1 > result2:
-                                current_fulfilled += 1
-                            elif symbol == "<" and result1 < result2:
-                                current_fulfilled += 1
-                            elif symbol == ">=" and result1 >= result2:
-                                current_fulfilled += 1
-                            elif symbol == "<=" and result1 <= result2:
-                                current_fulfilled += 1
+                            print('not equal')
+
                 if current_fulfilled == len(logic_arr):
-                    count = 0
+
+                    # count = 0
                     statement = statement_list[log_set][small_set]
-                    while '{' in statement and count <= 20:
+
+                    correct = 0
+                    s = re.split('\[|]', statement)
+                    count = -1
+                    for ele in s:
+                        life_expectancy = False
+                        dollar_format = False
                         count += 1
-                        index = int(statement.find('{'))
-                        end = int(statement.find('}') + 1)
-                        section = statement[index:end]
-                        key = section.replace('{', "").replace('}', "")
-                        operation_arr = ["+", "-", "*", "/"]
-                        ops = {"+": operator.add, "-": operator.sub, "*": operator.mul, "/": operator.truediv}
-                        if "$" in key:
-                            dollar_format = True
-                            key = key.replace("$", "")
-                        else:
-                            dollar_format = False
-                        if "#" in key:
-                            life_expectancy = True
-                            key = key.replace("#", "")
-                        else:
-                            life_expectancy = False
-                        pieces = re.split(r"([*+\-/])", key)
-                        count2 = -1
-                        result = 0
-                        loop_counter = 0
-                        for data in pieces:
-                            count2 += 1
-                            if data in operation_arr and len(pieces) != 1:
-                                first = pieces[count2 - 1]
-                                second = pieces[count2 + 1]
-                                if '^' in first:
-                                    first = output2_arr[int(first.replace('^', "")) - 1]
-                                else:
-                                    first = output1_arr[int(first) - 1]
-                                first = first.replace('$', "").replace(',', '')
-                                if '^' in second:
-                                    second = output2_arr[int(second.replace('^', "")) - 1]
-                                else:
-                                    second = output1_arr[int(second) - 1]
-                                second = second.replace('$', "").replace(',', '')
-                                if loop_counter == 0:
-                                    loop_counter += 1
-                                    if data == '/':
-                                        result += round(int(first) / int(second), 2)
-                                        print(result)
+                        if count % 2 == 0:
+                            continue
+                        elif count % 2 == 1:
+                            print(ele)
+
+                            tracker = 0
+                            if "$" in ele:
+                                dollar_format = True
+                                ele = ele.replace("$", "")
+
+                            s2 = re.split('{|}', ele)
+                            s2 = ' '.join(s2).split()
+                            count2 = -1
+                            print(s2)
+                            error_count = 0
+                            for item in s2:
+                                count2 += 1
+                                try:
+                                    if "^" in item:
+                                        output_use = output2_arr
+                                        item = item.replace("^", "")
                                     else:
-                                        result += int(ops[data](int(first), int(second)))
-                                else:
-                                    loop_counter += 1
-                                    if data == '/':
-                                        result += round(int(result) / int(second), 2)
-                                        print(result)
-                                    else:
-                                        result += int(ops[data](int(result), int(second)))
-                            elif len(pieces) == 1:
-                                if '^' in data:
-                                    result = output2_arr[int(data.replace('^', "")) - 1]
-                                else:
-                                    result = output1_arr[int(data) - 1]
-                        if dollar_format:
-                            dollar = "${:,}".format(result)
-                            if '-' in dollar:
-                                dollar = dollar.replace('-', '')
-                                dollar = "-" + dollar
-                            statement = statement.replace(section, str(dollar))
-                        elif life_expectancy:
-                            current_year = datetime.now().year
-                            result = int(result) - int(current_year)
-                            statement = statement.replace(section, str(result))
-                        else:
-                            statement = statement.replace(section, str(result).title())
-                        if '{' and '}' not in statement:
-                            output_sentences.append(statement)
-                    if '{' not in statement and count == 0:
-                        output_sentences.append(statement)
+                                        output_use = output1_arr
+                                    if "#" in item:
+                                        life_expectancy = True
+                                        item = item.replace("#", "")
+                                    try:
+                                        piece = int(item) - 1
+
+                                        val = output_use[piece].replace("$", '').replace(',', '')
+                                        val = val.replace('/mo', '').replace('/yr', '').replace('/wk', '')
+                                        if life_expectancy:
+                                            year = val.split(' ')
+                                            year = int(year[-1])
+                                            current_year = datetime.now().year
+                                            val = year - current_year
+                                        s2[count2] = val
+                                        tracker += 1
+                                    except KeyError:
+                                        print('key error')
+                                        break
+                                except ValueError:
+                                    error_count += 1
+                                    continue
+                            s2 = list(map(string_func, s2))
+                            output = ''.join(s2)
+                            output = output.replace("]", "").replace("[", "")
+
+                            if not math.floor(len(s2) / 2) > error_count and error_count > 0:
+                                output = round(eval(output), 2)
+                                if dollar_format:
+                                    print('here')
+                                    dollar = "${:,}".format(int(output))
+                                    if '-' in dollar:
+                                        dollar = dollar.replace('-', '')
+                                        dollar = "-" + dollar
+                                    output = dollar
+                                s[count] = output
+                                correct += 1
+                            elif error_count == 0:
+                                if dollar_format:
+                                    print('here')
+                                    dollar = "${:,}".format(int(output))
+                                    if '-' in dollar:
+                                        dollar = dollar.replace('-', '')
+                                        dollar = "-" + dollar
+                                    output = dollar
+                                s[count] = output
+                    s = list(map(string_func, s))
+
+                    try:
+                        output = ''.join(s)
+                        output = output.replace("]", "").replace("[", "")
+                        print(output)
+                        if '{' and '}' not in output:
+                            output_sentences.append(output)
+                    except:
+                        print('failure')
+                    # while '{' in statement and count <= 20:
+                    #     count += 1
+                    #     index = int(statement.find('{'))
+                    #     end = int(statement.find('}') + 1)
+                    #     section = statement[index:end]
+                    #     key = section.replace('{', "").replace('}', "")
+                    #     operation_arr = ["+", "-", "*", "/"]
+                    #     ops = {"+": operator.add, "-": operator.sub, "*": operator.mul, "/": operator.truediv}
+                    #     if "$" in key:
+                    #         dollar_format = True
+                    #         key = key.replace("$", "")
+                    #     else:
+                    #         dollar_format = False
+                    #     if "#" in key:
+                    #         life_expectancy = True
+                    #         key = key.replace("#", "")
+                    #     else:
+                    #         life_expectancy = False
+                    #     pieces = re.split(r"([*+\-/])", key)
+                    #     count2 = -1
+                    #     result = 0
+                    #     loop_counter = 0
+                    #     for data in pieces:
+                    #         count2 += 1
+                    #         if data in operation_arr and len(pieces) != 1:
+                    #             first = pieces[count2 - 1]
+                    #             second = pieces[count2 + 1]
+                    #             if '^' in first:
+                    #                 first = output2_arr[int(first.replace('^', "")) - 1]
+                    #             else:
+                    #                 first = output1_arr[int(first) - 1]
+                    #             first = first.replace('$', "").replace(',', '')
+                    #             if '^' in second:
+                    #                 second = output2_arr[int(second.replace('^', "")) - 1]
+                    #             else:
+                    #                 second = output1_arr[int(second) - 1]
+                    #             second = second.replace('$', "").replace(',', '')
+                    #             if loop_counter == 0:
+                    #                 loop_counter += 1
+                    #                 if data == '/':
+                    #                     result += int(first) / int(second)
+                    #                 else:
+                    #                     result += int(ops[data](int(first), int(second)))
+                    #             else:
+                    #                 loop_counter += 1
+                    #                 if data == '/':
+                    #                     result += int(result) / int(second)
+                    #                 else:
+                    #                     result += int(ops[data](int(result), int(second)))
+                    #         elif len(pieces) == 1:
+                    #             if '^' in data:
+                    #                 result = output2_arr[int(data.replace('^', "")) - 1]
+                    #             else:
+                    #                 result = output1_arr[int(data) - 1]
+                    #     if dollar_format:
+                    #         dollar = "${:,}".format(result)
+                    #         if '-' in dollar:
+                    #             dollar = dollar.replace('-', '')
+                    #             dollar = "-" + dollar
+                    #         statement = statement.replace(section, str(dollar))
+                    #     elif life_expectancy:
+                    #         current_year = datetime.now().year
+                    #         result = int(result) - int(current_year)
+                    #         statement = statement.replace(section, str(result))
+                    #     else:
+                    #         statement = statement.replace(section, str(result).title())
+                    #     if '{' and '}' not in statement:
+                    #         output_sentences.append(statement)
+                    # if '{' not in statement and count == 0:
+                    #     output_sentences.append(statement)
 
     make_word_doc(output_sentences)
 
@@ -355,6 +396,7 @@ def gen_synopses():
                 output1_list = {}
                 output2_list = {}
                 table_name_use = []
+
                 for i in table_names:
                     table_name_use.append(i)
                 column_name_use = []
@@ -372,6 +414,8 @@ def gen_synopses():
                 count = -1
                 information_arr = []
                 index_arr = []
+                remove_arr = []
+
                 for table_title in table_names:
                     count += 1
                     if table_title == '':
@@ -389,7 +433,6 @@ def gen_synopses():
                     data = store
                     df = pd.DataFrame(data)
                     df = df.rename(columns=df.iloc[0]).drop(df.index[0]).reset_index(drop=True)
-
                     try:
                         row_word = row_words[count][0]
                         addition = []
@@ -400,20 +443,27 @@ def gen_synopses():
                                 result = [find_result[0][0], find_result[1][0]]
                                 addition.append(result)
                                 index_arr.append(count)
-
-                            except IndexError:
+                            except:
+                                remove_arr.append(count)
+                                # remove_arr.append(table_title)
                                 continue
                             try:
                                 result2 = [find_result[0][1], find_result[1][1]]
                                 addition.append(result2)
                                 information_arr.append(addition)
-                            except IndexError:
+                            except:
                                 information_arr.append(addition)
 
-                    except ValueError:
+                    except:
                         continue
                 iteration = -1
-               
+
+                for thing in remove_arr:
+                    column_name_use[thing] = ''
+                    table_name_use[thing] = ''
+
+                column_name_use.remove('')
+                table_name_use.remove('')
                 for table_title in table_name_use:
                     iteration += 1
                     if table_title == '':
@@ -427,15 +477,10 @@ def gen_synopses():
                         for name in item:
                             temp.append(name.lower())
                         store.append(temp)
-
                     data = store
                     df = pd.DataFrame(data)
                     df = df.rename(columns=df.iloc[0]).drop(df.index[0]).reset_index(drop=True)
-                    try:
-                        group = information_arr[iteration]
-                    except:
-                        break
-
+                    group = information_arr[iteration]
                     index_item = index_arr[iteration]
                     for piece in group:
                         row = piece[0]
@@ -454,7 +499,7 @@ def gen_synopses():
                                 output1 = df.loc[df.index[row], column_label1]
                                 adding = output1.strip()
                                 output1_list[index_item] = adding
-                            except KeyError:
+                            except:
                                 continue
                             if any(column_label2 in string for string in col_list):
                                 strings = [string for string in col_list if column_label2 in string]
@@ -463,7 +508,7 @@ def gen_synopses():
                                     output2 = df.loc[df.index[row], column_label2]
                                     push = output2.strip()
                                     output2_list[index_item] = push
-                                except KeyError:
+                                except:
                                     continue
 
                 develop_sentences(output1_list, output2_list)
@@ -476,12 +521,12 @@ title.pack()
 conf_btn = Button(root, text="Get configuration file",
                   command=lambda: open_conf(my_label),
                   relief=SUNKEN, padx=20, pady=10,
-                  font=("Arial", 16), bg="white")
+                  font=("Arial", 16))
 conf_btn.pack()
 
 gen_syn_btn = Button(root, text="Generate Synopsis", command=lambda: gen_synopses(),
                      relief=SUNKEN, padx=20, pady=10,
-                     font=("Arial", 16), bg="white")
+                     font=("Arial", 16))
 gen_syn_btn.pack()
 
 start = Label(root, text="Please configure this before generating Synopses.", font=("Arial", 20))
